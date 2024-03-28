@@ -10,6 +10,13 @@
 #define MC_SIZE 1024
 
 int main() {
+    sem_t *sem = sem_open("/verificacionExe", O_CREAT, 0644, 1); // Crea el semáforo
+
+    if(sem == SEM_FAILED) {
+        perror("sem_open failed");
+        return 1;
+    }
+    sem_wait(sem);
     int memoria_compartida = shm_open(MC, O_RDWR, 0);
     if (memoria_compartida == -1) {
         perror("Error al abrir memoria compartida");
@@ -37,6 +44,8 @@ int main() {
         perror("Error al ejecutar el comando");
         exit(EXIT_FAILURE);
     }
+    sem_post(sem); 
+    sem_close(sem);
 
     return 0;
 }
