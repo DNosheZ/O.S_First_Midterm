@@ -10,7 +10,6 @@ int main(int argc, char *argv[]){
 	FILE *fp;
 	if(argc==2){/*verifico el paso de parametros*/
 	  const char *ruta= argv[1];//ruta de acceso del comando a ejecutar
-	  printf("Uso: p1 %s\n", ruta);
 	  if(fork()==0){//Proceso 2
 		char lectura[50];
 		read(fildes1[0], lectura, strlen(ruta));
@@ -30,10 +29,10 @@ int main(int argc, char *argv[]){
         ptr2=mmap(0,SIZE2,PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
 
 		  //aqui va la verificacion de la ruta de acceso dentro del sistema operativo
-		 
+		int InexistenciaRuta;
 		int VeriRuta=open(lectura,O_RDONLY);
 		if(VeriRuta<0){
-			int InexistenciaRuta=1;//este interruptor si esta bien implementado? (Javi respondio en el ultimo mensaje)
+			InexistenciaRuta=1;//este interruptor si esta bien implementado? (Javi respondio en el ultimo mensaje)
 		    write(fildes2[1], &InexistenciaRuta, strlen(ruta)); 
 		}
 		  //crear segunda tuberia sin nombre para comunicar de proceso 2
@@ -55,8 +54,19 @@ int main(int argc, char *argv[]){
 			ptr2=mmap(0,SIZE3,PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
 			//como comunico el espacio de memoria de este .C con el .C donde vive el proceso 3?
 
-			//debo recibir a traves del mismo espacio de memoria, la respuesta al comando ejecutado desde el proceso 3
-			//la respuesta se enviara a traves de una tuberia sin nombre al proceso 1
+			sem_t *sem = sem_open("/verificacionExe", 0);
+			if(sem == SEM_FAILED) {
+				perror("sem_open failed");
+				return 1;
+			}
+			if(sem_trywait(sem) == 0) {
+				sem_post(sem); //dado que si esta ejecutandose, se incrementa el semaforo
+			} else {
+			//enviar a traves de la tuberia sin nombre que comunica con p1 lo confirmacion de ejecucion de p3
+				InexistenciaRuta=2;
+		        write(fildes2[1], &InexistenciaRuta, strlen(ruta)); 
+			}
+			sem_close(sem);
 
 		}
 
@@ -78,10 +88,14 @@ int main(int argc, char *argv[]){
 		 read(fildes2[0], ExistRut, strlen(ruta));
 		 if(ExistRut==1){
 			printf("No se encuentra el archivo a ejecutar.");
+		 }else if(ExistRut==2){
+			printf("Proceso p3 no parece estar en ejecución.")
 		 }
 		//crear tuberia para recibir el resultado del comando ejecutado como parametro
 		//se recibe por el proceso 2
 		//como muestro la respuesta a ejecucion de un proceso traido desde una tuberia sin nombre
+
+		
 	  }
 
 	} 
