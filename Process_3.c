@@ -34,7 +34,7 @@ int main() {
         perror("Error al redirigir salida estándar");
         exit(EXIT_FAILURE);
     }
-
+    //para que sera la tuberia sin nombre que se crea al ejecutar el comando
     char comando[MC_SIZE];
     strcpy(comando, ptr);
   

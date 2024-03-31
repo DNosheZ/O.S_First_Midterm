@@ -11,7 +11,7 @@ int main(int argc, char *argv[]){
 	  const char *ruta= argv[1];//ruta de acceso del comando a ejecutar
 	  if(fork()==0){//Proceso 2
 		char lectura[50];
-		read(fildes1[0], lectura, strlen(ruta));
+		read(fildes1[0], lectura, strlen(ruta /*actualizar*/));
   		  //se abre memoria compartida para con Process_3.c
   		const int SIZE2 = 4096;
         const char *name2="/VP";//nombre y tamano del espacio compartido de memoria
@@ -31,8 +31,8 @@ int main(int argc, char *argv[]){
 		int InexistenciaRuta;
 		int VeriRuta=open(lectura,O_RDONLY);
 		if(VeriRuta<0){
-			InexistenciaRuta=1;//este interruptor si esta bien implementado? (Javi respondio en el ultimo mensaje)
-		    write(fildes2[1], &InexistenciaRuta, strlen(ruta)); 
+			InexistenciaRuta=1;
+		    write(fildes2[1], &InexistenciaRuta, sizeof(int)); 
 		}
 		  //crear segunda tuberia sin nombre para comunicar de proceso 2
 		  //a proceso 1
@@ -63,9 +63,12 @@ int main(int argc, char *argv[]){
 			} else {
 			//enviar a traves de la tuberia sin nombre que comunica con p1 lo confirmacion de ejecucion de p3
 				InexistenciaRuta=2;
-		        write(fildes2[1], &InexistenciaRuta, strlen(ruta)); 
+		        write(fildes2[1], &InexistenciaRuta, sizeof(int)); 
 			}
 			sem_close(sem);
+			//falta la recoleccion del espacio de memoria compartido con el proceso 3
+
+			//falta el envio de la ejecucion desde el proceso 2 al proceso 1
 
 		}
 
@@ -76,7 +79,7 @@ int main(int argc, char *argv[]){
 			perror("Error al crear la tuberia\n");
 	     	return (1);
 		 }
-		 write(fildes1[1], ruta, strlen(ruta)); 
+		 write(fildes1[1], ruta, strlen(ruta/*actualizar*/)); 
 		 //crea la tuberia para verificar la existencia de la ruta de acceso
 		 int fildes2[2];
 	     if (pipe(fildes2)<0){
@@ -84,15 +87,13 @@ int main(int argc, char *argv[]){
 			return (1);
 		 }
 		 int ExistRut=0;
-		 read(fildes2[0], ExistRut, strlen(ruta));
+		 read(fildes2[0], ExistRut, strlen(ruta/*actualizar*/));
 		 if(ExistRut==1){
 			printf("No se encuentra el archivo a ejecutar.");
 		 }else if(ExistRut==2){
 			printf("Proceso p3 no parece estar en ejecución.")
 		 }
-		//crear tuberia para recibir el resultado del comando ejecutado como parametro
-		//se recibe por el proceso 2
-		//como muestro la respuesta a ejecucion de un proceso traido desde una tuberia sin nombre
+		//falta la recepcion de la ejecucion desde el proceso 2 y la respuesta de salida
 
 		
 	  }
