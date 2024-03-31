@@ -7,7 +7,6 @@
 #include <semaphore.h>
 int main(int argc, char *argv[]){
 	char ruta[1024];
-	FILE *fp;
 	if(argc==2){/*verifico el paso de parametros*/
 	  const char *ruta= argv[1];//ruta de acceso del comando a ejecutar
 	  if(fork()==0){//Proceso 2
