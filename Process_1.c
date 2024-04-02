@@ -215,6 +215,9 @@ int main(int argc, char *argv[]) {
       
     return 0;
 }
-  
+  close(fildes1);
+  close(fildes2);
+  close(fildes3);
+ return 0;
 }
       
