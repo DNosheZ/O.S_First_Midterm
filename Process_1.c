@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
           sem_post(sem_rec);
 
           // esperamos a que el proceso 3 termine
-          sleep(1);
+          sleep(1); //debe ser cambiado por un wait();
 
           // creamos la variable que almacena la ejecucion del comando
           char ejecucion[SIZE2];
