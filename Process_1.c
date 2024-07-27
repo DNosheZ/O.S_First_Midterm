@@ -1,98 +1,219 @@
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <semaphore.h>
-int main(int argc, char *argv[]){
-	char ruta[1024];
-	FILE *fp;
-	if(argc==2){/*verifico el paso de parametros*/
-	  const char *ruta= argv[1];//ruta de acceso del comando a ejecutar
-	  printf("Uso: p1 %s\n", ruta);
-	  if(fork()==0){//Proceso 2
-		char lectura[50];
-		read(fildes1[0], lectura, strlen(ruta));
-  		  //se abre memoria compartida para con Process_3.c
-  		const int SIZE2 = 4096;
-        const char *name2="/VP";//nombre y tamano del espacio compartido de memoria
-        int fd2;
-       	char *ptr2;//descriptor y puntero del area de memoria compartida
-        shm_unlink(name2);
-        fd2=shm_open(name2, O_CREAT | O_RDWR, 0666);
-        //borrado preventivo y creacion del espacio de memoria compartida que comunica con Process_3.c
-        if (fd2==-1){
-            perror("Error en el shm_open");
-            return(-1);
+
+ 
+// definimos variables globales
+#define  name2 "/VP"
+#define  SIZE2 1024
+#define SEM_PROD_NAME "/sem_prod"
+#define SEM_REC_NAME "/sem_rec"
+#define SEM_VER_NAME "/sem_ver"
+
+//definimos la funcion principal
+int main(int argc, char *argv[]) {
+
+    //verificamos que se haya ingresado un argumento
+    if (argc != 2) {
+        printf("Uso: %s /ruta/al/ejecutable\n", argv[0]);
+        return 1;
+    }
+
+    // creamos la variable que contendra la ruta del archivo
+    char ruta[1024];
+    strcpy(ruta, argv[1]);
+  
+    // creamos las tuberias
+    int fildes1[2];
+    int fildes2[2];
+    int fildes3[2];
+  
+    if (pipe(fildes1) < 0 || pipe(fildes2) < 0 || pipe(fildes3) < 0){
+        perror("Error al crear la tuberia");
+        return 1;
+    }
+  
+  // Abre los semáforos
+  sem_t *sem_prod, *sem_rec, *sem_ver;
+  sem_prod = sem_open("/sem_prod", O_CREAT, 0644, 0);
+  sem_rec = sem_open("/sem_rec", O_CREAT, 0644, 0);
+  sem_ver = sem_open("/sem_ver", O_CREAT, 0644, 0);
+
+  if (sem_prod == SEM_FAILED || sem_rec == SEM_FAILED || sem_ver == SEM_FAILED) {
+      perror("Error al abrir semáforos");
+      exit(EXIT_FAILURE);
+  }
+    
+    // creamos el proceso hijo
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("Error al crear el proceso hijo");
+        return 1;
+    }
+  
+    // Proceso hijo (Proceso 2)
+    if (pid == 0) { 
+      
+        // cerramos los extremos de la tuberia que no se usaran
+        close(fildes1[1]);
+        close(fildes2[0]);
+        close(fildes3[0]);
+
+        // creamos variables necesarias
+        char lectura[1024];
+        int valor;
+        sem_getvalue(sem_ver, &valor);
+        
+        // escribimos el comando en la variable lectura
+        ssize_t bytes_read = read(fildes1[0], lectura, sizeof(lectura));
+        if (bytes_read < 0) {
+            perror("Error al leer desde la tuberia");
+            return 1;
         }
-	    ftruncate(fd2,SIZE2);
-        ptr2=mmap(0,SIZE2,PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
+        
+        // verificamos la existencia de la ruta del archivo
+        int InexistenciaRuta = 0;
+        if (access(ruta, F_OK) < 0) {
+            InexistenciaRuta = 1;
+            ssize_t bytes_written = write(fildes2[1], &InexistenciaRuta, sizeof(int));
+            if (bytes_written < 0) {
+                perror("Error al escribir en la tuberia");
+                return 1;
+            }
+        } 
+      
+        // si la ruta existe, verificamos que el proceso 3 este en ejecucion
+        else if (valor == 0) {
+            InexistenciaRuta = 2;
+            ssize_t bytes_written = write(fildes2[1], &InexistenciaRuta, sizeof(int));
+            if (bytes_written < 0) {
+              perror("Error al escribir en la tuberia");
+              return 1;
+            }
+          }
+          
+        // si el proceso 3 esta en ejecucion continuamos
+        else{
 
-		  //aqui va la verificacion de la ruta de acceso dentro del sistema operativo
-		 
-		int VeriRuta=open(lectura,O_RDONLY);
-		if(VeriRuta<0){
-			int InexistenciaRuta=1;//este interruptor si esta bien implementado? (Javi respondio en el ultimo mensaje)
-		    write(fildes2[1], &InexistenciaRuta, strlen(ruta)); 
-		}
-		  //crear segunda tuberia sin nombre para comunicar de proceso 2
-		  //a proceso 1
-		//crear espacio me memoria para comunicarse con el proceso 3, enviando la ruta de acceso ya verificada
-		else{
-			const int SIZE3 = 4096;
-        	const char *name3="/VP";//nombre y tamano del espacio compartido de memoria
-        	int fd3;
-       		char *ptr3;//descriptor y puntero del area de memoria compartida
-        	shm_unlink(name3);
-        	fd3=shm_open(name3, O_CREAT | O_RDWR, 0666);
-        //borrado preventivo y creacion del espacio de memoria compartida que comunica con Process_3.c
-			if (fd3==-1){
-				perror("Error en el shm_open");
-				return(-1);
-			}
-			ftruncate(fd3,SIZE3);
-			ptr2=mmap(0,SIZE3,PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
-			//como comunico el espacio de memoria de este .C con el .C donde vive el proceso 3?
+          // establecemos los parametros para el area de memoria compartida
+          int fd2;
+          char *ptr2;
 
-			//debo recibir a traves del mismo espacio de memoria, la respuesta al comando ejecutado desde el proceso 3
-			//la respuesta se enviara a traves de una tuberia sin nombre al proceso 1
+          // abrimos el area de memoria compartida
+          fd2 = shm_open(name2, O_CREAT | O_RDWR, 00600);
+          if (fd2 == -1) {
+            perror("Error al abrir el area de memoria compartida");
+            return 1;
+          }
 
-		}
+          // configuramos el tamaño del area de memoria compartida
+          if (ftruncate(fd2, SIZE2) == -1) {
+            perror("Error al truncar memoria compartida");
+            exit(EXIT_FAILURE);
+          }
 
-	  }else{//Proceso 1
-		//crea la tuberia para enviar la ruta de acceso
-		 int fildes1[2];
-	     if (pipe(fildes1)<0){
-			perror("Error al crear la tuberia\n");
-	     	return (1);
-		 }
-		 write(fildes1[1], ruta, strlen(ruta)); 
-		 //crea la tuberia para verificar la existencia de la ruta de acceso
-		 int fildes2[2];
-	     if (pipe(fildes2)<0){
-			perror("Error al crear la tuberia\n");
-			return (1);
-		 }
-		 int ExistRut=0;
-		 read(fildes2[0], ExistRut, strlen(ruta));
-		 if(ExistRut==1){
-			printf("No se encuentra el archivo a ejecutar.");
-		 }
-		//crear tuberia para recibir el resultado del comando ejecutado como parametro
-		//se recibe por el proceso 2
-		//como muestro la respuesta a ejecucion de un proceso traido desde una tuberia sin nombre
-	  }
+          // mapeamos el area de memoria compartida
+          ptr2 = mmap(0, SIZE2, PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
+          if (ptr2 == MAP_FAILED) {
+            perror("Error al mapear el objeto de memoria compartida");
+            return 1;
+          }
+          
+          // escribimos el comando en el area de memoria compartida
+          memcpy(ptr2, lectura, bytes_read);
 
-	} 
-	//probablemente deba crear un semaforo para proteger y dar tiempo
-	//al guardado de la direccion en el espacio de memoria
-	}else{//mensaje default en caso de que no se asigne un parametro de ejecucion
-	  printf("Uso: p1 /ruta/al/ejecutable");
-	}
-	close(fildes1[0]);
-	close(fildes1[1]);
-	close(fildes2[0]);
-	close(fildes2[1]);
-	return 0;
+          // damos la señal de que el proceso 2 ya ingreso el comando
+          sem_post(sem_rec);
+
+          // esperamos a que el proceso 3 termine
+          wait(NULL);
+
+          // creamos la variable que almacena la ejecucion del comando
+          char ejecucion[SIZE2];
+          strcpy(ejecucion, ptr2);
+
+          // escribimos en la tuberia la ejecucion
+          ssize_t escritura_ejecucion = write(fildes3[1], &ejecucion, sizeof(ejecucion));
+          if (escritura_ejecucion < 0) {
+            perror("Error al escribir en la tuberia");
+            return 1;
+                 
+        }
+      }
+
+      // cerramos los elementos que ya no necesitamos
+      close(fildes3[1]);
+      close(fildes1[0]);
+      close(fildes2[1]);
+      munmap(name2, SIZE2);
+      shm_unlink(name2);
+      sem_close(sem_prod);
+      sem_close(sem_rec);
+      sem_close(sem_ver);
+      sem_unlink(SEM_PROD_NAME);
+      sem_unlink(SEM_REC_NAME);
+      sem_unlink(SEM_VER_NAME);
+      
+    }
+    // Proceso padre (Proceso 1)
+    else { 
+
+        // cerramos el extremo de la tuberia que no se usara
+        close(fildes1[0]);
+        close(fildes2[1]);
+        close(fildes3[1]);
+      
+        // escribimos el comando en la tuberia
+        ssize_t bytes_written = write(fildes1[1], ruta, sizeof(ruta));
+        if (bytes_written < 0) {
+            perror("Error al escribir en la tuberia");
+            return 1;
+        }
+
+        // recibimos las verificaciones del proceso 2
+        int ExistRut = 0;
+        ssize_t bytes_read = read(fildes2[0], &ExistRut, sizeof(int));
+        if (bytes_read < 0) {
+            perror("Error al leer desde la tuberia");
+            return 1;
+        }
+
+        // confirmamos el caso de terminacion e imprimimos el mensaje correspondiente
+        if (ExistRut == 1) {
+            printf("No se encuentra el archivo a ejecutar.\n");
+            exit(1);
+        } 
+        else if (ExistRut == 2) {
+            printf("Proceso p3 no parece estar en ejecución.\n");
+            exit(1);
+        }
+
+      // leemos la ejecucion del comando de la tuberia
+      char ejecucion[SIZE2];
+      ssize_t lectura_ejecucion = read(fildes3[0], &ejecucion, sizeof(ejecucion));
+      if (bytes_read < 0) {
+          perror("Error al leer desde la tuberia");
+          return 1;
+      }
+
+      // imprimimos la ejecucion del comando
+      printf("%s", ejecucion);
+      printf("Procesos terminados\n");
+      
+      // cerramos los elementos que ya no necesitamos
+      close(fildes1[1]);
+      close(fildes2[0]);
+      close(fildes3[0]);
+      
+    return 0;
 }
+  
+} 
