@@ -51,39 +51,72 @@ int main() {
       perror("Error al mapear el objeto de memoria compartida");
       return 1;
     }
+    //creamos la variable que almacena el comando
+      printf("Leyendo de la memoria...\n");
+      char comando[SIZE2];
+      strcpy(comando, ptr2);
+      printf("Leido %s\n", comando);
+      printf("Ejecutando %s\n", comando);
 
-  //creamos la variable que almacena el comando
-  printf("Leyendo de la memoria...\n");
-  char comando[SIZE2];
-  strcpy(comando, ptr2);
-  printf("Leido %s\n", comando);
-  printf("Ejecutando %s\n", comando);
-  printf("Proceso terminado\n");
+    // eliminamos todo lo que este en el area de memoria compartida
+      memset(ptr2, 0, sizeof(comando));
 
-  // eliminamos todo lo que este en el area de memoria compartida
-  memset(ptr2, 0, sizeof(comando));
+    // creamos la tuberia
+      int fildes4[2];
+      if (pipe(fildes4) < 0 ) {
+            perror("Error al crear la tuberia");
+            return 1;
+        }
 
-  // desbloqueamos el proceso 2
-  sem_post(sem_rec);
+      
+    
+    
+    // creamos el proceso hijo
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("Error al crear el proceso hijo");
+        return 1;
+    }
 
-  // cerramos los elementos que ya no necesitamos
-  sem_close(sem_prod);
-  sem_close(sem_rec);
-  sem_close(sem_ver);
-  sem_unlink(SEM_PROD_NAME);
-  sem_unlink(SEM_REC_NAME);
-  sem_unlink(SEM_VER_NAME);
+    // Proceso hijo (Proceso 2)
+    if (pid == 0) {
+        
+        // desviamos la salida estandar a la tuberia 
+          if (dup2(fildes4[1], STDOUT_FILENO) == -1) {
+              perror("Error al redirigir salida estándar");
+              exit(EXIT_FAILURE);
+          }
+        
+        close(fildes4[1]);
 
-  // desviamos la salida estandar al area de memoria compartida
-  if (dup2(fd2, STDOUT_FILENO) == -1) {
-      perror("Error al redirigir salida estándar");
-      exit(EXIT_FAILURE);
-  }
-  
-  // ejecutamos el comando 
-  if (execlp(comando, comando, NULL) == -1) {
-    perror("Error al ejecutar el comando");
-      exit(EXIT_FAILURE);
-  }
+        // ejecutamos el comando 
+          if (execlp(comando, comando, NULL) == -1) {
+            perror("Error al ejecutar el comando");
+              exit(EXIT_FAILURE);
+          }
+      
 
+    } 
+    else{
+      
+      // escribimos el comando en el area de memoria compartida
+      char buffer[1024];
+      ssize_t count;
+    
+       count = read(fildes4[0], buffer, sizeof(buffer)); 
+       memcpy(ptr2, buffer, count);
+      
+      
+      printf("Proceso terminado\n");
+      sem_post(sem_prod);
+      
+      // cerramos los elementos que ya no necesitamos
+      
+      sem_close(sem_prod);
+      sem_close(sem_rec);
+      sem_close(sem_ver);
+      sem_unlink(SEM_PROD_NAME);
+      sem_unlink(SEM_REC_NAME);
+      sem_unlink(SEM_VER_NAME);
+      }
 }
