@@ -43,9 +43,11 @@ int main(int argc, char *argv[]) {
   
   // Abre los semáforos
   sem_t *sem_prod, *sem_rec, *sem_ver;
+
   sem_prod = sem_open("/sem_prod", O_CREAT, 0666, 0);
   sem_rec = sem_open("/sem_rec", O_CREAT, 0666, 0);
   sem_ver = sem_open("/sem_ver", O_CREAT, 0666, 0);
+
 
   if (sem_prod == SEM_FAILED || sem_rec == SEM_FAILED || sem_ver == SEM_FAILED) {
       perror("Error al abrir semáforos");
@@ -77,6 +79,7 @@ int main(int argc, char *argv[]) {
         if (bytes_read < 0) {
             perror("Error al leer desde la tuberia");
             return 1;
+
         }
         
         // verificamos la existencia de la ruta del archivo
@@ -167,6 +170,7 @@ int main(int argc, char *argv[]) {
             perror("Error al escribir en la tuberia");
             return 1;
         }
+
 
         // recibimos las verificaciones del proceso 2
         int ExistRut = 0;

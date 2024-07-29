@@ -17,6 +17,7 @@
 int main() {
   
   // Abre los semáforos
+
   
   sem_t *sem_prod, *sem_rec, *sem_ver;
   sem_unlink(SEM_PROD_NAME);
@@ -25,6 +26,7 @@ int main() {
   sem_prod = sem_open("/sem_prod", O_CREAT, 0666, 0);
   sem_rec = sem_open("/sem_rec", O_CREAT, 0666, 0);
   sem_ver = sem_open("/sem_ver", O_CREAT, 0666, 0);
+
 
   if (sem_prod == SEM_FAILED || sem_rec == SEM_FAILED || sem_ver == SEM_FAILED) {
       perror("Error al abrir semáforos");
