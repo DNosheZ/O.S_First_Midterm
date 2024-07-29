@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         
-        // verificamos la existenciad de la ruta del archivo
+        // verificamos la existencia de la ruta del archivo
         int InexistenciaRuta = 0;
         if (access(ruta, F_OK) < 0) {
             InexistenciaRuta = 1;
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
           }
 
           // mapeamos el area de memoria compartida
-          ptr2 = mmap(0, SIZE2, PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
+          ptr2 = mmap(0, SIZE2, O_CREAT|PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
           if (ptr2 == MAP_FAILED) {
             perror("Error al mapear el objeto de memoria compartida");
             return 1;
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
           sem_post(sem_rec);
 
           // esperamos a que el proceso 3 termine
-          sleep(1); //debe ser cambiado por un wait();
+          sem_wait(sem_prod);
 
           // creamos la variable que almacena la ejecucion del comando
           char ejecucion[SIZE2];
@@ -215,9 +215,6 @@ int main(int argc, char *argv[]) {
       
     return 0;
 }
-  close(fildes1);
-  close(fildes2);
-  close(fildes3);
- return 0;
-}
-      
+  
+} 
+ 
