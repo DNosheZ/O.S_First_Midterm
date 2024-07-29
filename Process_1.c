@@ -43,9 +43,11 @@ int main(int argc, char *argv[]) {
   
   // Abre los semáforos
   sem_t *sem_prod, *sem_rec, *sem_ver;
-  sem_prod = sem_open("/sem_prod", O_CREAT, 0644, 0);
-  sem_rec = sem_open("/sem_rec", O_CREAT, 0644, 0);
-  sem_ver = sem_open("/sem_ver", O_CREAT, 0644, 0);
+
+  sem_prod = sem_open("/sem_prod", O_CREAT, 0666, 0);
+  sem_rec = sem_open("/sem_rec", O_CREAT, 0666, 0);
+  sem_ver = sem_open("/sem_ver", O_CREAT, 0666, 0);
+
 
   if (sem_prod == SEM_FAILED || sem_rec == SEM_FAILED || sem_ver == SEM_FAILED) {
       perror("Error al abrir semáforos");
@@ -77,6 +79,7 @@ int main(int argc, char *argv[]) {
         if (bytes_read < 0) {
             perror("Error al leer desde la tuberia");
             return 1;
+
         }
         
         // verificamos la existencia de la ruta del archivo
@@ -106,7 +109,8 @@ int main(int argc, char *argv[]) {
           // establecemos los parametros para el area de memoria compartida
           int fd2;
           char *ptr2;
-
+          shm_unlink(name2);
+            
           // abrimos el area de memoria compartida
           fd2 = shm_open(name2, O_CREAT | O_RDWR, 00600);
           if (fd2 == -1) {
@@ -149,18 +153,7 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      // cerramos los elementos que ya no necesitamos
-      close(fildes3[1]);
-      close(fildes1[0]);
-      close(fildes2[1]);
-      munmap(name2, SIZE2);
-      shm_unlink(name2);
-      sem_close(sem_prod);
-      sem_close(sem_rec);
-      sem_close(sem_ver);
-      sem_unlink(SEM_PROD_NAME);
-      sem_unlink(SEM_REC_NAME);
-      sem_unlink(SEM_VER_NAME);
+      
       
     }
     // Proceso padre (Proceso 1)
@@ -177,6 +170,7 @@ int main(int argc, char *argv[]) {
             perror("Error al escribir en la tuberia");
             return 1;
         }
+
 
         // recibimos las verificaciones del proceso 2
         int ExistRut = 0;
@@ -215,6 +209,8 @@ int main(int argc, char *argv[]) {
       
     return 0;
 }
-  
+      close(fildes3[1]);
+      close(fildes1[0]);
+      close(fildes2[1]);
 } 
  

@@ -17,10 +17,16 @@
 int main() {
   
   // Abre los semáforos
+
+  
   sem_t *sem_prod, *sem_rec, *sem_ver;
-  sem_prod = sem_open("/sem_prod", O_CREAT, 0644, 0);
-  sem_rec = sem_open("/sem_rec", O_CREAT, 0644, 0);
-  sem_ver = sem_open("/sem_ver", O_CREAT, 0644, 0);
+  sem_unlink(SEM_PROD_NAME);
+  sem_unlink(SEM_REC_NAME);
+  sem_unlink(SEM_VER_NAME);
+  sem_prod = sem_open("/sem_prod", O_CREAT, 0666, 0);
+  sem_rec = sem_open("/sem_rec", O_CREAT, 0666, 0);
+  sem_ver = sem_open("/sem_ver", O_CREAT, 0666, 0);
+
 
   if (sem_prod == SEM_FAILED || sem_rec == SEM_FAILED || sem_ver == SEM_FAILED) {
       perror("Error al abrir semáforos");
@@ -112,6 +118,8 @@ int main() {
       
       // cerramos los elementos que ya no necesitamos
       
+      munmap(name2, SIZE2);
+      shm_unlink(name2);
       sem_close(sem_prod);
       sem_close(sem_rec);
       sem_close(sem_ver);
